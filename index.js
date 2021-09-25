@@ -6,15 +6,15 @@ const model = require('./model')
 
 function roundDown(number, decimals) {
     decimals = decimals || 0;
-    return (Math.floor(number * Math.pow(10, decimals)) / Math.pow(10, decimals));
+    return ( Math.floor( number * Math.pow(10, decimals) ) / Math.pow(10, decimals) );
 }
 
 const compound = async () => {
     const data = await api.payload('GET', '/public/api/ver1/deals?', {
-        scope: 'completed'
+        scope: 'completed', bot_id: '6115959'
     })
-
-    data.map(async (i) => {
+    //bot_id: '6115959'
+    for(const i of data) {
         // check if deal has already been compounded
         const dealId = i.id
         const deal = await model.find({ dealId })
@@ -74,14 +74,17 @@ const compound = async () => {
                     // log
                     const prefix = error ? 'here was an error compounding bot ' : 'Compounded '
 
-                    console.log(prefix + name)
-                    console.log('Deal - ' + dealId)
+                    console.log(prefix + name + ' with $' + i['final_profit'] + ' profit from deal ' + dealId)
+                    console.log('Base order size increased from $' + baseOrderPrice + ' to $' + newBasePrice)
+                    console.log('Safety order size increased from $' + safetyOrderPrice + ' to $' + newSafetyOrderPrice)
+                    //console.log('Deal - ' + dealId)
 
                     console.log(updateParam)
                     /*console.log('Base Profit - $' + baseProfit)
                     console.log('Profit Split - $' + profitSplit)
                     console.log('Old Base Price -  $' + baseOrderPrice)
                     console.log('New Base Price -  $' + newBasePrice)
+
                     console.log('Old Safety Price -  $' + safetyOrderPrice)
                     console.log('New Safety Price -  $' + newSafetyOrderPrice.toFixed(2))
                     console.log('Pairs - ', pairs)*/
@@ -99,7 +102,7 @@ const compound = async () => {
                 }
             }
         }
-    })
+    }
 }
 
 cron.schedule('30 * * * * *', () => compound(), {})
