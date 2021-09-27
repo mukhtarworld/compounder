@@ -9,11 +9,15 @@ mongoose.connect(
         useUnifiedTopology: true
     }
 )
-    .then(() => console.log('MongoDB connected...'))
+    .then(() => console.log('MongoDB connected...\n'))
     .catch(err => console.log(err))
 
 const compoundSchema = new mongoose.Schema({
     dealId: String
+})
+
+const timeSchema = new mongoose.Schema({
+    time: Date
 })
 
 mongoose.set('useFindAndModify', false)

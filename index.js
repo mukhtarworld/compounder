@@ -9,49 +9,92 @@ function roundDown(number, decimals) {
     return ( Math.floor( number * Math.pow(10, decimals) ) / Math.pow(10, decimals) );
 }
 
+function getCurrentTime() {
+    var today = new Date();
+    var date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
+    var time = today.getHours() + ":" + today.getMinutes() + ":" + today.getSeconds();
+    var dateTime = date + ' ' + time;
+    return dateTime;
+}
+
+//user input
+const botIds = [6115959, 6117435, 6107349] //array of bots eligible for compunding [6107349]
+const percentProfit = 1 //percent of profit to compound
+const timeInterval = 25 //time interval to compound in minutes
+
+//get or save last run time
+const lastTime = { time: new Date() }
+var startTime = getCurrentTime()
+
 const compound = async () => {
-    const data = await api.payload('GET', '/public/api/ver1/deals?', {
-        scope: 'completed', bot_id: '6115959'
-    })
-    //bot_id: '6115959'
-    for(const i of data) {
-        // check if deal has already been compounded
-        const dealId = i.id
-        const deal = await model.find({ dealId })
+    botIds.map(async (x) => {    
 
-        // if deal hasn't been registered yet, we're good to start our compounding magic
-        if (deal.length === 0) {
-            // get the bot attached to the deal
-            const bot_id = i['bot_id']
+        const deals = await api.payload('GET', '/public/api/ver1/deals?', {
+            scope: 'completed', bot_id: x
+        })
+
+        //loop through the deals synchronously to carry out next steps
+        var profitSum = 0
+        var dealArray = []
+        var compoundedDealsCount = 0
+        for (const i of deals) {
+            // check if deal has already been compounded
+            const dealId = i.id
+            const deal = await model.find({ dealId })
+            const closedTime = i['closed_at']
+
+            // if deal hasn't been registered yet, we're good to start our compounding magic
+            if (deal.length === 0) {
+
+                //check if deal has recently completed
+
+                const profit = parseFloat(i['final_profit'])
+                compoundedDealsCount += 1
+                profitSum += profit
+                dealArray.push(' deal ' + dealId + ': $' + roundDown(profit, 2) )
+            }
+        }
+
+
+        // get the bot attached to the deal and continue if some profit has been made
+        if (profitSum != 0) {            
+            const bot_id = x
             const bot = await api.payload('GET', `/public/api/ver1/bots/${bot_id}/show?`, { bot_id })
-            const baseOrderPrice = parseFloat(bot['base_order_volume']).toFixed(2)
-            const safetyOrderPrice = bot['safety_order_volume']
-            const baseProfit = roundDown(parseFloat(i['final_profit']), 2)
-            const profitSplit = roundDown(parseFloat(i['final_profit'] / 2), 2)
-
-            // pairs
-            //const pairs = (bot['pairs'] + '').split(',')
+            const baseOrderVolume = bot['base_order_volume']
+            const safetyOrderVolume = bot['safety_order_volume']     
+            const safetyVolumeScale = bot['martingale_volume_coefficient']
             const pairs = bot['pairs']
             const name = bot['name']
-
             const safetyOrderStepPercentage = bot['safety_order_step_percentage']
             const safetyOrderMaxSize = bot['max_safety_orders']
+            const factor = safetyOrderVolume / baseOrderVolume
 
-            // compound the profits from the deal to the bots base price
-            //
-            // take 1/3 of the profit and compound to the base
-            const newBasePrice = (parseFloat(profitSplit) + parseFloat(baseOrderPrice)).toFixed(2)
-            // take 2/3 of the profit and compound to the safe order base
-            const newSafetyOrderPrice = (parseFloat(safetyOrderPrice) + parseFloat(profitSplit))
+            //get divisor to split the profit into base order and safety order, it depends on safety volume scale and ratio of safety volume to base volume
+            var divisor = 1
+            if (safetyVolumeScale == 1) {
+                divisor = safetyOrderMaxSize * factor + 1
+            }
+            else {
+                divisor = ((1 - Math.pow(safetyVolumeScale, safetyOrderMaxSize)) / (1 - safetyVolumeScale)) * factor + 1
+            }
 
-            // update bot with compounded base price
+            //divide profit to base and safety splits
+            const compoundedProfit = profitSum * percentProfit
+            const baseProfitSplit = roundDown(parseFloat(compoundedProfit / divisor), 2)
+            const safetyProfitSplit = roundDown(baseProfitSplit * factor, 2)
+
+            // compound the profits from the deal to the bot's base volume and safety volume        
+            const newBaseOrderVolume = parseFloat(baseOrderVolume) + baseProfitSplit       
+            const newSafetyOrderVolume = parseFloat(safetyOrderVolume) + safetyProfitSplit
+
+            // update bot with compounded values
             // (the following keys are there because they are mandatory... a 3commas thing)
             const updateParam = {
                 name,
                 pairs,
-                base_order_volume: newBasePrice, // this is what we're interested in, compound 1/3 of if to the base
+                base_order_volume: newBaseOrderVolume, // this is what we're interested in, compound 1/3 of if to the base
                 take_profit: bot['take_profit'],
-                safety_order_volume: newSafetyOrderPrice.toFixed(2), // compound the remaining 2/3 to the safety order
+                safety_order_volume: newSafetyOrderVolume, // compound the remaining 2/3 to the safety order
                 martingale_volume_coefficient: bot['martingale_volume_coefficient'],
                 martingale_step_coefficient: bot['martingale_step_coefficient'],
                 max_safety_orders: safetyOrderMaxSize,
@@ -64,7 +107,7 @@ const compound = async () => {
 
             if (bot['base_order_volume_type'] !== 'percent') {
 
-                // If you wan to preview the data before its saved and updated on your account, comment out this line
+                // If you want to preview the data before its saved and updated on your account, comment out this line
                 const update = await api.payload('PATCH', `/public/api/ver1/bots/${bot_id}/update?`, updateParam)
 
                 // and use this one instead
@@ -72,11 +115,14 @@ const compound = async () => {
 
                 const log = (error) => {
                     // log
-                    const prefix = error ? 'here was an error compounding bot ' : 'Compounded '
-
-                    console.log(prefix + name + ' with $' + i['final_profit'] + ' profit from deal ' + dealId)
-                    console.log('Base order size increased from $' + baseOrderPrice + ' to $' + newBasePrice)
-                    console.log('Safety order size increased from $' + safetyOrderPrice + ' to $' + newSafetyOrderPrice)
+                    const time = getCurrentTime()
+                    console.log("=====================")
+                    const prefix = error ? 'here was an error compounding bot ' : 'At ' + time + ', service ' + 'compounded '
+                    const percent = percentProfit*100 + '%'
+                    console.log(prefix + '"' + name + '"' + ' with ' + percent + ' of $' + roundDown(profitSum, 2) + ' total profit from ' + compoundedDealsCount + ' deals: ')
+                    console.log(dealArray + '\n')
+                    console.log('Base order size increased from $' + baseOrderVolume + ' to $' + newBaseOrderVolume)
+                    console.log('Safety order size increased from $' + safetyOrderVolume + ' to $' + newSafetyOrderVolume + '\n')
                     //console.log('Deal - ' + dealId)
 
                     console.log(updateParam)
@@ -84,7 +130,7 @@ const compound = async () => {
                     console.log('Profit Split - $' + profitSplit)
                     console.log('Old Base Price -  $' + baseOrderPrice)
                     console.log('New Base Price -  $' + newBasePrice)
-
+    
                     console.log('Old Safety Price -  $' + safetyOrderPrice)
                     console.log('New Safety Price -  $' + newSafetyOrderPrice.toFixed(2))
                     console.log('Pairs - ', pairs)*/
@@ -95,14 +141,22 @@ const compound = async () => {
                     log(true)
                 } else {
                     log()
-                    // save deal to database so that it won't be compounded again
-                    const compoundedDeal = new model({ dealId })
+                    // save deals to database so that they won't be compounded again
+                    deals.map(async (deal) => {
+                        const dealId = deal.id
+                        const dealData = await model.find({ dealId })
+                        if (dealData.length === 0) {
+                            const compoundedDeal = new model({ dealId })
 
-                    await compoundedDeal.save()
+                            await compoundedDeal.save()
+                        }
+                    })
+
                 }
             }
         }
-    }
+
+    })
 }
 
 cron.schedule('30 * * * * *', () => compound(), {})

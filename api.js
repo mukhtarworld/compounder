@@ -26,7 +26,7 @@ const payload = async (method, path, params) => {
         headers: {
           'APIKEY': apiCredentials.key,
           'Signature': signature(path, querystring.stringify(params)),
-          'Forced-Mode':"paper"
+          //'Forced-Mode':"paper"
         }
       }
     )
