@@ -1,8 +1,21 @@
 {
   "dependencies": {
+    "3commas-api-node": "^1.0.9",
     "dotenv": "^10.0.0",
     "mongoose": "^5.13.9",
     "node-cron": "^3.0.0",
     "node-fetch": "^2.6.5"
+  },
+  "name": "compounder",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "nodemon index.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^2.0.13"
   }
 }

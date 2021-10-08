@@ -3,6 +3,7 @@ require('dotenv').config()
 const querystring = require('querystring');
 const crypto = require('crypto')
 const fetch = require('node-fetch')
+const appMode = "real"
 
 const apiCredentials = {
   url: 'https://api.3commas.io',
@@ -15,6 +16,7 @@ const signature = (requestUri, reqData) => {
   return crypto.createHmac('sha256', apiCredentials.secret).update(request).digest('hex')
 }
 
+
 const payload = async (method, path, params) => {
   try {
     let response = await fetch(
@@ -26,7 +28,7 @@ const payload = async (method, path, params) => {
         headers: {
           'APIKEY': apiCredentials.key,
           'Signature': signature(path, querystring.stringify(params)),
-          'Forced-Mode':"paper"
+          'Forced-Mode':appMode
         }
       }
     )
@@ -39,5 +41,5 @@ const payload = async (method, path, params) => {
 }
 
 module.exports = {
-  payload
+  payload, appMode
 }
