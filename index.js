@@ -32,7 +32,6 @@ function getCurrentTime() {
 }
 
 
-
 //get or save last run time
 const lastTime = { time: new Date() }
 var startTime = getCurrentTime()
