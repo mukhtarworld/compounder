@@ -37,7 +37,7 @@ const lastTime = { time: new Date() }
 var startTime = getCurrentTime()
 
 const compound = async () => {
-    botIds.map(async (x) => {    
+    for (const x of botIds) {    
 
         const deals = await api.getDeals({scope: 'completed', bot_id: x}) /*await api.payload('GET', '/public/api/ver1/deals?', {
             scope: 'completed', bot_id: x
@@ -204,7 +204,7 @@ const compound = async () => {
             }
         }
 
-    })
+    }
 }
 
 cron.schedule('30 * * * * *', () => compound(), {})
