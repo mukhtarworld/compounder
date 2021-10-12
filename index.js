@@ -9,13 +9,13 @@ const threeCommasAPI = require('3commas-api-node')
 const api = new threeCommasAPI({
   apiKey: process.env.API_KEY,
   apiSecret: process.env.API_SECRET,
-  appMode: "paper"
+  appMode: "real"
   // url: 'https://api.3commas.io' // this is optional in case of defining other endpoint
 })
 
 //user input
-const botIds = [/*6115959, 6117435, 6107349, 6242171,*/ 6254325, 6286865] //array of bots eligible for compunding [6107349]
-const percentProfit = 1 //percent of profit to compound
+const botIds = [6254325]//[6115959/*, 6117435, 6107349, 6242171, 6254325, 6286865*/] //array of bots eligible for compunding [6107349]
+const percentProfit = 1 //percent of profit to compound 6107349 (red candle), 6286865 (hot), 6254325 (candle close)
 const timeInterval = 25 //time interval to compound in minutes
 
 function roundDown(number, decimals) {
