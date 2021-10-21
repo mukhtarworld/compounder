@@ -14,7 +14,7 @@ const api = new threeCommasAPI({
 })
 
 //user input
-const botIds = [/*6115959, 6117435, 6107349, 6242171,*/ 6254325, 6286865] //array of bots eligible for compunding [6107349]
+const botIds = [6362860]//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865] //array of bots eligible for compunding [6107349]
 const percentProfit = 1 //percent of profit to compound
 const timeInterval = 25 //time interval to compound in minutes
 
@@ -39,7 +39,7 @@ var startTime = getCurrentTime()
 const compound = async () => {
     for (const x of botIds) {    
 
-        const deals = await api.getDeals({scope: 'completed', bot_id: x}) /*await api.payload('GET', '/public/api/ver1/deals?', {
+        const deals = await api.getDeals({scope: 'completed', scope: 'finished', bot_id: x}) /*await api.payload('GET', '/public/api/ver1/deals?', {
             scope: 'completed', bot_id: x
         })*/
 
@@ -83,6 +83,7 @@ const compound = async () => {
             const baseOrderVolume = bot['base_order_volume']
             const safetyOrderVolume = bot['safety_order_volume']     
             const safetyVolumeScale = bot['martingale_volume_coefficient']
+            const maxActiveDeals = bot['max_active_deals']
             const pairs = bot['pairs']
             const name = bot['name']
             const safetyOrderStepPercentage = bot['safety_order_step_percentage']
@@ -100,7 +101,7 @@ const compound = async () => {
 
             //divide profit to base and safety splits
             const compoundedProfit = profitSum * percentProfit
-            const baseProfitSplit = roundDown(parseFloat(compoundedProfit / divisor), 2)
+            const baseProfitSplit = roundDown((parseFloat(compoundedProfit / divisor))/maxActiveDeals, 2)
             const safetyProfitSplit = roundDown(baseProfitSplit * factor, 2)
 
             // compound the profits from the deal to the bot's base volume and safety volume        
@@ -117,9 +118,10 @@ const compound = async () => {
             const updateParam = {
                 name : bot['name'],
                 pairs : pairList,
+                max_active_deals: bot['max_active_deals'],
                 base_order_volume: newBaseOrderVolume, // this is what we're interested in, compound 1/3 of if to the base
                 take_profit: bot['take_profit'],
-                safety_order_volume: newSafetyOrderVolume, // compound the remaining 2/3 to the safety order
+                safety_order_volume: newSafetyOrderVolume, // compound the remaining 2/3 to the safety order                
                 martingale_volume_coefficient: bot['martingale_volume_coefficient'],
                 martingale_step_coefficient: bot['martingale_step_coefficient'],
                 max_safety_orders: safetyOrderMaxSize,
@@ -137,6 +139,7 @@ const compound = async () => {
 
                 // and use this one instead
                 //const update = { error: true }
+                const plural = dealArray.length == 1 ? "" : "s"
 
                 const log = (error) => {
                     // log
@@ -144,14 +147,15 @@ const compound = async () => {
                     console.log("=====================")
                     const prefix = error ? 'here was an error compounding bot ' : 'At ' + time + ', service ' + 'compounded '
                     const percent = percentProfit*100 + '%'
-                    console.log(prefix + '"' + name + '"' + ' with ' + percent + ' of $' + roundDown(profitSum, 2) + ' total profit from ' + compoundedDealsCount + ' deals: ')
+                    console.log(prefix + '"' + name + '"' + ' with ' + percent + ' of $' + roundDown(profitSum, 2) + 
+                    ' total profit from ' + compoundedDealsCount + ' deal' + plural + ": " )
                     console.log(dealArray + '\n')
                     console.log('Base order size increased from $' + baseOrderVolume + ' to $' + newBaseOrderVolume)
-                    console.log('Safety order size increased from $' + safetyOrderVolume + ' to $' + newSafetyOrderVolume + '\n')
+                    console.log('Safety order size increased from $' + safetyOrderVolume + ' to $' + newSafetyOrderVolume)
                     //console.log('Deal - ' + dealId)
 
-                    console.log(updateParam)
-                    /*console.log('Base Profit - $' + baseProfit)
+                    /*console.log(updateParam)
+                    console.log('Base Profit - $' + baseProfit)
                     console.log('Profit Split - $' + profitSplit)
                     console.log('Old Base Price -  $' + baseOrderPrice)
                     console.log('New Base Price -  $' + newBasePrice)
