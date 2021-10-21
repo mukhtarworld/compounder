@@ -1,9 +1,7 @@
 require('dotenv').config()
 
-//const api = require('./api')
 const cron = require('node-cron')
 const model = require('./model')
-
 const threeCommasAPI = require('3commas-api-node')
  
 const api = new threeCommasAPI({
@@ -14,15 +12,15 @@ const api = new threeCommasAPI({
 })
 
 //user input
-const botIds = [6362860]//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865] //array of bots eligible for compunding [6107349]
+const botIds = [6362860]//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865] //array of bots eligible for compunding
 const percentProfit = 1 //percent of profit to compound
-const timeInterval = 25 //time interval to compound in minutes
 
 function roundDown(number, decimals) {
     decimals = decimals || 0;
     return ( Math.floor( number * Math.pow(10, decimals) ) / Math.pow(10, decimals) );
 }
 
+//To do...will try to compound the profit by comparing completed deals since the last time api checked
 function getCurrentTime() {
     var today = new Date();
     var date = today.getFullYear() + '-' + (today.getMonth() + 1) + '-' + today.getDate();
@@ -30,12 +28,11 @@ function getCurrentTime() {
     var dateTime = date + ' ' + time;
     return dateTime;
 }
-
-
 //get or save last run time
 const lastTime = { time: new Date() }
 var startTime = getCurrentTime()
 
+//start the compounding process
 const compound = async () => {
     for (const x of botIds) {    
 
