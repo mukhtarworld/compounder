@@ -41,11 +41,6 @@ this will run once every minute. In the console you'll get results like these:
 ![API output](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/results.png?raw=true)
 
 ## Roadmap
-- [ ] reformat to make code modular
-- [ ] change data storage medium
 - [ ] investigate ability to compound profit based on time of completion instead of storing completed deals in database
-- [ ] add ability to compound grid bots
-- [ ] send you a text message everytime compounding occurs with Twilio
-- [ ] option to use Telegram to get messages when something happens
-- [ ] and/or Slack messages
-- [ ] provide guide on using AWS lambda functions to fire off the API
+- [ ] investigate ability to send text message everytime compounding occurs with Twilio
+- [ ] investigate option to use Telegram to get messages when something happens
