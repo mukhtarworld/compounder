@@ -17,6 +17,11 @@ This uses `mongoosedb` to store and save the deal ID into a database to keep tra
 ![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step2.png?raw=true)
 ![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step3.png?raw=true)
 
+## MongoDB Atlas
+![Get mongodb connection](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step1.png?raw=true)
+![Get mongodb connection](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step2.png?raw=true)
+![Get mongodb connection](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step3.png?raw=true)
+
 ## Install
 `npm install` or `yarn install`
 
