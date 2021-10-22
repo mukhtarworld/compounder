@@ -13,9 +13,9 @@ This uses `mongoosedb` to store and save the deal ID into a database to keep tra
 - [yarn](https://yarnpkg.com/) (if your not using npm which is installed by default when you install nodejs)
 
 ## 3Commas API
-![create an API key in 3Commas](https://github.com/eli007s/3commas-compounding/blob/main/img/step1.png?raw=true)
-![create an API key in 3Commas](https://github.com/eli007s/3commas-compounding/blob/main/img/step2.png?raw=true)
-![create an API key in 3Commas](https://github.com/eli007s/3commas-compounding/blob/main/img/step3.png?raw=true)
+![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step1.png?raw=true)
+![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step2.png?raw=true)
+![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step3.png?raw=true)
 
 ## Install
 `npm install` or `yarn install`
@@ -25,12 +25,12 @@ This uses `mongoosedb` to store and save the deal ID into a database to keep tra
 
 this will run once every minute. In the console you'll get results like these:
 
-![API output](https://github.com/eli007s/3commas-compounding/blob/main/img/results.png?raw=true)
+![API output](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/results.png?raw=true)
 
 ## Roadmap
 - [ ] reformat to make code modular
 - [ ] change data storage medium
-- [ ] options to specify how to distribute the profits. Into the base order size, safety orders, etc.
+- [ ] investigate ability to compound profit based on time of completion instead of storing completed deals in database
 - [ ] add ability to compound grid bots
 - [ ] send you a text message everytime compounding occurs with Twilio
 - [ ] option to use Telegram to get messages when something happens
