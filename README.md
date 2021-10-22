@@ -4,9 +4,13 @@ This is a helper utility to take the profits from your completed deals and compo
 
 Be aware that this will take your profit numbers and round them down. So `$0.147` will be calculated as `$0.14` and not `$0.15`.
 
-To get started copy `.env.example` to `.env` and fill in the fields.
+This uses `mongoosedb` to store and save the deal ID into a database to keep track of deals already compounded.
 
-This uses `mongoosedb` to store and save the deal ID into a database to keep track of deals already compounded. 
+To get started, copy `.env.example` to `.env` and fill in the fields. 
+- Note 1: The percent profit is the required percentage of the total profit you wish to be compounding. Value should be from 0.0 (zero percent of profit) to 1.0 (100 percent of profit)
+- Note 2: Fill in the bot ids you wish to be compounding profit for as an array `e.g BOT_ID=[123456, 654321, 001122]`
+
+ 
 
 ## Dependencies
 - [node](https://nodejs.org)
@@ -22,6 +26,8 @@ This uses `mongoosedb` to store and save the deal ID into a database to keep tra
 ![Get mongodb connection](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/mongodb%20connect%201.png?raw=true)
 ![Get mongodb connection](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/mongodb%20connect%202.png?raw=true)
 ![Get mongodb connection](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/mongodb%20connect%203.png?raw=true)
+
+Copy the connection link and replace username and password. Also, delete the `&w=majority` in the `.env` file.
 
 ## Install
 `npm install` or `yarn install`
