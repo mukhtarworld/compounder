@@ -135,7 +135,7 @@ const compound = async () => {
                 const log = (error) => {
                     // log
                     const time = getCurrentTime()
-                    //console.log("=====================")
+                    
                     const logMessage = "=====================\n" + 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
                     percentProfit*100 + '%' + ' of $' + roundDown(profitSum, 2) + 
                     ' total profit from ' + compoundedDealsCount + ' deal' + plural + ": \n" + dealArray + '\n\n' +
@@ -145,26 +145,7 @@ const compound = async () => {
 
                     const errorMessage = update.error
                     const message = error ? errorMessage : logMessage
-                   /* const prefix = error ? 'There was an error compounding bot ' : 'At ' + time + ', service ' + 'compounded '
-                    const percent = percentProfit*100 + '%'
-                    console.log(prefix + '"' + name + '"' + ' with ' + percent + ' of $' + roundDown(profitSum, 2) + 
-                    ' total profit from ' + compoundedDealsCount + ' deal' + plural + ": " )
-                    console.log(dealArray + '\n')
-                    console.log('Base order size increased from $' + baseOrderVolume + ' to $' + newBaseOrderVolume)
-                    console.log('Safety order size increased from $' + safetyOrderVolume + ' to $' + newSafetyOrderVolume)
-                    //console.log('Deal - ' + dealId)
-
-                    /*console.log(updateParam)
-                    console.log('Base Profit - $' + baseProfit)
-                    console.log('Profit Split - $' + profitSplit)
-                    console.log('Old Base Price -  $' + baseOrderPrice)
-                    console.log('New Base Price -  $' + newBasePrice)
-    
-                    console.log('Old Safety Price -  $' + safetyOrderPrice)
-                    console.log('New Safety Price -  $' + newSafetyOrderPrice.toFixed(2))
-                    console.log('Pairs - ', pairs)
-
-                    console.log("=====================\n")*/
+                   
                     console.log(message)
                 }
 
