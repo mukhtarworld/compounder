@@ -12,8 +12,8 @@ const api = new threeCommasAPI({
 })
 
 //user input
-const botIds = [6362860]//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865] //array of bots eligible for compunding
-const percentProfit = 1 //percent of profit to compound from 0.0 to 1.0
+const botIds = process.env.BOT_IDS.split(',')//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865] //array of bots eligible for compunding [6362860]
+const percentProfit = process.env.PERCENT_PROFIT //percent of profit to compound from 0.0 to 1.0
 
 function roundDown(number, decimals) {
     decimals = decimals || 0;
@@ -136,7 +136,7 @@ const compound = async () => {
                     // log
                     const time = getCurrentTime()
                     //console.log("=====================")
-                    const logMessage = "=====================\n" + 'At ' + time + ', service ' + 'compounded ' + name + '"' + ' with ' + 
+                    const logMessage = "=====================\n" + 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
                     percentProfit*100 + '%' + ' of $' + roundDown(profitSum, 2) + 
                     ' total profit from ' + compoundedDealsCount + ' deal' + plural + ": \n" + dealArray + '\n\n' +
                     'Base order size increased from $' + baseOrderVolume + ' to $' + newBaseOrderVolume +'\n' +

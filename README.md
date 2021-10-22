@@ -8,7 +8,7 @@ This uses `mongoosedb` to store and save the deal ID into a database to keep tra
 
 To get started, copy `.env.example` to `.env` and fill in the fields. 
 - Note 1: The percent profit is the required percentage of the total profit you wish to be compounding. Value should be from 0.0 (zero percent of profit) to 1.0 (100 percent of profit)
-- Note 2: Fill in the bot ids you wish to be compounding profit for as an array `e.g BOT_ID=[123456, 654321, 001122]`
+- Note 2: Fill in the bot ids you wish to be compounding profit for as an array separated by just a comma with no space afterwards `e.g BOT_ID=[123456,654321,001122]`
 
  
 
