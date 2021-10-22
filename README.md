@@ -17,6 +17,9 @@ To get started, copy `.env.example` to `.env` and fill in the fields.
 - [node](https://nodejs.org)
 - [yarn](https://yarnpkg.com/) (if your not using npm which is installed by default when you install nodejs)
 
+## Latest working branch
+`updated_v3`
+
 ## 3Commas API
 ![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step1.png?raw=true)
 ![create an API key in 3Commas](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/step2.png?raw=true)
