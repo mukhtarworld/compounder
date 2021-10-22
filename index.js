@@ -7,7 +7,7 @@ const threeCommasAPI = require('3commas-api-node')
 const api = new threeCommasAPI({
   apiKey: process.env.API_KEY,
   apiSecret: process.env.API_SECRET,
-  appMode: "paper"
+  appMode: process.env.APP_MODE
   // url: 'https://api.3commas.io' // this is optional in case of defining other endpoint
 })
 
