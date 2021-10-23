@@ -45,5 +45,6 @@ this will run once every minute. In the console you'll get results like these:
 
 ## Roadmap
 - [ ] investigate ability to compound profit based on time of completion instead of storing completed deals in database
+- [ ] develop app as standalone for users with no programming background
 - [ ] investigate ability to send text message everytime compounding occurs with Twilio
 - [ ] investigate option to use Telegram to get messages when something happens
