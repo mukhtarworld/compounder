@@ -12,7 +12,7 @@ const api = new threeCommasAPI({
 })
 
 //user input
-const botIds = process.env.BOT_IDS.split(',')//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865] //array of bots eligible for compunding [6362860]
+const botIds = process.env.BOT_IDS.split(',')//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865, 6545493] //array of bots eligible for compunding [6362860]
 const percentProfit = process.env.PERCENT_PROFIT //percent of profit to compound from 0.0 to 1.0
 
 function roundDown(number, decimals) {
@@ -33,7 +33,7 @@ const lastTime = { time: new Date() }
 var startTime = getCurrentTime()
 
 //start the compounding process
-const compound = async () => {
+const compound = async () => {    
     for (const x of botIds) {    
 
         //get the completed deals for current bot
@@ -189,10 +189,17 @@ const compound = async () => {
 
                 }
             }
-        }
+        }        
+       await sleep(1000) 
 
     }
 }
+
+function sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+  }
 
 cron.schedule('30 * * * * *', () => compound(), {})
 
