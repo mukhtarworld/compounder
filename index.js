@@ -189,8 +189,9 @@ const compound = async () => {
 
                 }
             }
-        }        
-       await sleep(1000) 
+        }   
+        // wait for 1 secs after finishing one bot to prevent 3commas rate limit issue     
+        await sleep(1000) 
 
     }
 }
