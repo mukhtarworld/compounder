@@ -1,14 +1,14 @@
 # 3Commas Compounding
 
-This is a helper utility to take the profits from your completed deals and compound them to the bots base order size.
+This is a helper utility to take the profits from your completed deals and compound them to the bot's base order and safety order sizes. It determines the required profit part to split into both the base order and safety order sizes by taking into consideration the factor between base order size and safety order size, number of safety orders, and maximum active deals.
 
 Be aware that this will take your profit numbers and round them down. So `$0.147` will be calculated as `$0.14` and not `$0.15`.
 
-This uses `mongoosedb` to store and save the deal ID into a database to keep track of deals already compounded.
+This uses `mongoosedb` to store and save the deal ID into a database to keep track of deals already compounded. You can create a free mongodb atlas account to host your database.
 
 To get started, copy `.env.example` to `.env` and fill in the fields. 
 - Note 1: The percent profit is the required percentage of the total profit you wish to be compounding. Value should be from 0.0 (zero percent of profit) to 1.0 (100 percent of profit)
-- Note 2: Fill in the bot ids you wish to be compounding profit for as an array separated by just a comma with no space afterwards `e.g BOT_ID=[123456,654321,001122]`
+- Note 2: Fill in the bot ids you wish to be compounding profit for as an array separated by just a comma with no space afterwards `e.g BOT_IDS=[123456,654321,001122]`
 - `APP_MODE` can take three values `paper, real, both`. Set `APP_MODE=paper` for testing on paper account, `APP_MODE=real` for running on real account, or `APP_MODE=both` to run on any account at which point service will run on selected account mode on the 3Commas website or mobile
 
  
@@ -16,6 +16,7 @@ To get started, copy `.env.example` to `.env` and fill in the fields.
 ## Dependencies
 - [node](https://nodejs.org)
 - [yarn](https://yarnpkg.com/) (if your not using npm which is installed by default when you install nodejs)
+- [mongoDB](https://docs.atlas.mongodb.com/getting-started/) (to use mongoDB in the cloud using Atlas)
 
 ## Latest working branch
 `updated_v3`
@@ -39,7 +40,7 @@ Copy the connection link and replace username and password. Also, delete the `&w
 ## Run
 `node index.js`
 
-this will run once every minute. In the console you'll get results like these:
+this will run once every minute. In the console you'll get results like this:
 
 ![API output](https://github.com/mukhtarworld/compounder/blob/updated_v3/img/results.png?raw=true)
 
