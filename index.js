@@ -34,6 +34,7 @@ var startTime = getCurrentTime()
 
 //start the compounding process
 const compound = async () => {    
+    //console.log("Run starting at " + getCurrentTime())
     for (const x of botIds) {    
 
         //get the completed deals for current bot
@@ -97,8 +98,8 @@ const compound = async () => {
 
             //divide profit to base and safety splits
             const compoundedProfit = profitSum * percentProfit
-            const baseProfitSplit = roundDown((parseFloat(compoundedProfit / divisor))/maxActiveDeals, 2)
-            const safetyProfitSplit = roundDown(baseProfitSplit * factor, 2)
+            const baseProfitSplit = (parseFloat(compoundedProfit / divisor))/maxActiveDeals
+            const safetyProfitSplit = baseProfitSplit * factor
 
             // compound the profits from the deal to the bot's base volume and safety volume        
             const newBaseOrderVolume = parseFloat(baseOrderVolume) + baseProfitSplit       
