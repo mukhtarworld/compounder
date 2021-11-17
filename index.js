@@ -37,6 +37,13 @@ const compound = async () => {
     //console.log("Run starting at " + getCurrentTime())
     for (const x of botIds) {    
 
+        //get the bot info
+        const bot = await api.botShow(x)
+
+        const baseCurrency = bot['base_order_volume_type']
+        const profitCurrency = bot['profit_currency']
+        const currency = profitCurrency=='quote_currency' ? '$' :''
+
         //get the completed deals for current bot
         const deals = await api.getDeals({scope: 'finished', bot_id: x}) 
 
@@ -45,7 +52,7 @@ const compound = async () => {
         var dealArray = []
         var compoundedDealsCount = 0
         for (const i of deals) {
-            
+
             // check if deal has already been compounded
             const dealId = i.id
             let deal
@@ -65,18 +72,19 @@ const compound = async () => {
             //get total profit from all completed deals
             if (deal.length === 0) {
 
-                const profit = parseFloat(i['final_profit'])
+                const profit = profitCurrency == 'quote_currency' ? parseFloat(i['final_profit']) : parseFloat(i['reserved_second_coin'])*(-1) 
+               
                 compoundedDealsCount += 1
                 profitSum += profit
-                dealArray.push(' deal ' + dealId + ': $' + roundDown(profit, 2) )
+                dealArray.push(' deal ' + dealId + ': ' + currency + roundDown(profit, 2) )
             }
         }
 
 
         // get the bot attached to the deal and continue if some profit has been made
         if (profitSum != 0) {            
-            const bot_id = x
-            const bot = await api.botShow(bot_id)
+            //const bot_id = x
+            //const bot = await api.botShow(bot_id)
             const baseOrderVolume = bot['base_order_volume']
             const safetyOrderVolume = bot['safety_order_volume']     
             const safetyVolumeScale = bot['martingale_volume_coefficient']
@@ -128,20 +136,22 @@ const compound = async () => {
                 bot_id: bot['id']
             }
 
-            if (bot['base_order_volume_type'] !== 'percent') {
+            
+            
+            if (bot['base_order_volume_type'] !== 'percent' && baseCurrency == profitCurrency) {
 
                 const update = await api.botUpdate(updateParam)                
                 const plural = dealArray.length == 1 ? "" : "s"
 
                 const log = (error) => {
                     // log
-                    const time = getCurrentTime()
-                    
+                    const time = getCurrentTime()                    
+
                     const logMessage = "=====================\n" + 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
-                    percentProfit*100 + '%' + ' of $' + roundDown(profitSum, 2) + 
+                    percentProfit*100 + '%' + ' of ' + currency + roundDown(profitSum, 2) + 
                     ' total profit from ' + compoundedDealsCount + ' deal' + plural + ": \n" + dealArray + '\n\n' +
-                    'Base order size increased from $' + baseOrderVolume + ' to $' + newBaseOrderVolume +'\n' +
-                    'Safety order size increased from $' + safetyOrderVolume + ' to $' + newSafetyOrderVolume + '\n' +
+                    'Base order size increased from ' + currency + baseOrderVolume + ' to ' + currency + newBaseOrderVolume +'\n' +
+                    'Safety order size increased from ' + currency + safetyOrderVolume + ' to ' + currency + newSafetyOrderVolume + '\n' +
                     "=====================\n"
 
                     const errorMessage = update.error
