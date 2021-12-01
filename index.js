@@ -36,8 +36,8 @@ var startTime = getCurrentTime()
 //start the compounding process
 const compound = async () => {    
     //console.log("Run starting at " + getCurrentTime())
-    for (const x of appModes){
-        api.appMode = x
+    for (const y of appModes){
+        api.appMode = y
 
         for (const x of botIds) {    
 
