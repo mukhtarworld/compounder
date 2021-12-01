@@ -7,9 +7,8 @@ Be aware that this will take your profit numbers and round them down. So `$0.147
 This uses `mongoosedb` to store and save the deal ID into a database to keep track of deals already compounded. You can create a free mongodb atlas account to host your database.
 
 To get started, copy `.env.example` to `.env` and fill in the fields. 
-- Note 1: The percent profit is the required percentage of the total profit you wish to be compounding. Value should be from 0.0 (zero percent of profit) to 1.0 (100 percent of profit)
-- Note 2: Fill in the bot ids you wish to be compounding profit for as an array separated by just a comma with no space afterwards `e.g BOT_IDS=[123456,654321,001122]`
-- `APP_MODE` entry removed from `.env.example`. Deprecated the requirement to set `APP_MODE` to specific values `paper, real, both`. The app can now run all bots at once whether in real or paper accounts
+- Note 1: The `PERCENT_PROFITS` is the required percentage of the total profit you wish to be compounding. Value should be from 0.0 (zero percent of profit) to 1.0 (100 percent of profit).
+- Note 2: Fill in the bot ids you wish to be compounding profit for as an array separated by just a comma with no space afterwards `e.g BOT_IDS=123456,654321,001122`. Also, fill the `PERCENT_PROFITS` as an array similar to `BOT_IDS` with each entry corresponding to the bot id to compound, `e.g PERCENT_PROFITS=1.0,1.0,0.5` will compound 100% of profit for `bot 123456`, 100% of profit for `bot 654321`, and 50% of profit for `bot 001122`. If `PERCENT_PROFITS` is filled with single entry `e.g PERCENT_PROFITS=0.7`, then 70% of profit will be used for all bots
 
  
 

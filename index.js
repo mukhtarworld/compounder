@@ -13,7 +13,8 @@ let api = new threeCommasAPI({
 
 //user input
 const botIds = process.env.BOT_IDS.split(',')//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865, 6545493] //array of bots eligible for compunding [6362860]
-const percentProfit = process.env.PERCENT_PROFIT //percent of profit to compound from 0.0 to 1.0
+const percentProfits = process.env.PERCENT_PROFITS.split(',')
+let percentProfit //= process.env.PERCENT_PROFIT //percent of profit to compound from 0.0 to 1.0
 const appModes = ["real","paper"]
 
 function roundDown(number, decimals) {
@@ -36,8 +37,16 @@ var startTime = getCurrentTime()
 //start the compounding process
 const compound = async () => {    
     //console.log("Run starting at " + getCurrentTime())
+    if (percentProfits.length == 1){
+        percentProfit = percentProfits[0]
+    }
+    else if (botIds.length != percentProfits.length){
+        console.log("Array of bots and profit percents do not match in length, function will exit")
+        return
+    }
     for (const y of appModes){
         api.appMode = y
+        let count = 0
 
         for (const x of botIds) {    
 
@@ -61,25 +70,15 @@ const compound = async () => {
                 const dealId = i.id
                 let deal
                 if (api.appMode == "paper") {
-                    deal = await model.paperCollection.find({ dealId })
-                    if(deal.length === 0){
-                        deal = await model.bothCollection.find({ dealId })
-                    }
+                    deal = await model.paperCollection.find({ dealId })                    
                 }
                 else if(api.appMode == "real")  {
-                    deal = await model.realCollection.find({ dealId })
-                    if(deal.length === 0){
-                        deal = await model.bothCollection.find({ dealId })
-                    }
+                    deal = await model.realCollection.find({ dealId })                    
                 }
                 else {
-                    deal = await model.bothCollection.find({ dealId })
-                    if(deal.length === 0){
-                        deal = await model.realCollection.find({ dealId })
-                    }
-                    if(deal.length === 0){
-                        deal = await model.paperCollection.find({ dealId })
-                    }
+                    console.log("App mode should be paper or real only")
+                    return
+                    //deal = await model.bothCollection.find({ dealId })                    
                 }
                 //const deal = await model.find({ dealId })
                 //const closedTime = i['closed_at']
@@ -121,6 +120,9 @@ const compound = async () => {
                 }
 
                 //divide profit to base and safety splits
+                if (percentProfits.length != 1){
+                    percentProfit = percentProfits[count]
+                }
                 const compoundedProfit = profitSum * percentProfit
                 const baseProfitSplit = (parseFloat(compoundedProfit / divisor))/maxActiveDeals
                 const safetyProfitSplit = baseProfitSplit * factor
@@ -185,10 +187,7 @@ const compound = async () => {
                             const dealId = deal.id
                             let dealData
                             if (api.appMode == "paper") {
-                                dealData = await model.paperCollection.find({ dealId })
-                                if(dealData.length === 0){
-                                    dealData = await model.bothCollection.find({ dealId })
-                                }
+                                dealData = await model.paperCollection.find({ dealId })                                
 
                                 if (dealData.length === 0) {
                                     const compoundedDeal = new model.paperCollection({ dealId })
@@ -198,38 +197,22 @@ const compound = async () => {
 
                             }
                             else if (api.appMode == "real")  {
-                                dealData = await model.realCollection.find({ dealId })
-                                if(dealData.length === 0){
-                                    dealData = await model.bothCollection.find({ dealId })
-                                }
+                                dealData = await model.realCollection.find({ dealId })                                
 
                                 if (dealData.length === 0) {
                                     const compoundedDeal = new model.realCollection({ dealId })
         
                                     await compoundedDeal.save()
                                 }
-                            }
-                            else {
-                                dealData = await model.bothCollection.find({ dealId })
-                                if(dealData.length === 0){
-                                    dealData = await model.realCollection.find({ dealId })
-                                }
-                                if(dealData.length === 0){
-                                    dealData = await model.paperCollection.find({ dealId })
-                                }
-
-                                if (dealData.length === 0) {
-                                    const compoundedDeal = new model.bothCollection({ dealId })
-
-                                    await compoundedDeal.save()
-                                }
-                            }
+                            }                           
                             
                         })
 
                     }
                 }
             }   
+            //increment count for the next bot
+            count+=1
             // wait for 1 secs after finishing one bot to prevent 3commas rate limit issue     
             await sleep(1000) 
 
