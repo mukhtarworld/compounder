@@ -3,17 +3,292 @@ require('dotenv').config()
 const cron = require('node-cron')
 const model = require('./model')
 const threeCommasAPI = require('3commas-api-node')
- 
-const api = new threeCommasAPI({
-  apiKey: process.env.API_KEY,
-  apiSecret: process.env.API_SECRET,
-  appMode: process.env.APP_MODE
-  // url: 'https://api.3commas.io' // this is optional in case of defining other endpoint
-})
+const { parse } = require('dotenv')
 
-//user input
-const botIds = process.env.BOT_IDS.split(',')//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865, 6545493] //array of bots eligible for compunding [6362860]
-const percentProfit = process.env.PERCENT_PROFIT //percent of profit to compound from 0.0 to 1.0
+
+//user inputs
+const botIds = [7212186] //process.env.BOT_IDS.split(',') //[7212186]
+const percentProfits =[1] // process.env.PERCENT_PROFITS.split(',') //[1]
+const appModes = ["paper"]
+const updateActiveDeals = true // process.env.ACTIVE_DEALS_UPDATE
+
+//adds fund to active deals
+async function addFund(apiObject, bot, fundToAdd, fundCurrency){
+    let message
+    //get active deals for the bot
+    const activeDeals = await apiObject.getDeals({scope: 'active', bot_id: bot['id']})
+    if (activeDeals.length != 0) {
+
+        //divide fund to the number of active deals
+        const fundPerDeal = parseFloat(fundToAdd)/activeDeals.length
+        let successAdded=[], fundAdded=0, log = '', prefix = '', suffix = '', minimumFund = 1.0
+        //add fund to active deals if fundPerdeal is greater than minimumFund
+        if (fundPerDeal >= minimumFund){
+            for (const i of activeDeals) {
+                const currentPrice =parseFloat(i['current_price']) 
+                const quantity = fundPerDeal/currentPrice
+                const updateParam = {
+                    quantity : quantity,
+                    is_market : true,
+                    rate: 0,
+                    deal_id: i.id                
+                }
+                //add fund to the deal
+                const update = await apiObject.dealAddFunds(updateParam)
+                if (!update.error){
+                    successAdded.push (i.id)
+                    fundAdded += fundPerDeal
+                }
+                else {
+                    log +='deal: ' + i.id + ' - ' + update.error + '\n'
+                }
+            }
+
+            //prepare output message
+            if (successAdded.length == 0){
+                prefix = "Unable to add fund to any of the active deals. Following error was encountered:\n"
+                suffix = ''
+            }
+            else if (successAdded.length != activeDeals.length){
+                prefix = "Unable to add fund to one or more active deals. Following error was encountered:\n"
+                suffix = fundCurrency + roundDown(fundPerDeal,2) + ' was successfully added to each of these active deals:\n' + successAdded +'\n'
+            }
+            else {
+                prefix = fundCurrency + roundDown(fundPerDeal,2) + ' was successfully added to each of these active deals:\n' + successAdded
+                log = ''
+                suffix = '\n'
+            }
+            message = prefix + log + suffix
+        }
+        else {
+            message = 'Unable to add fund to any active deals. ' + fundCurrency + roundDown(fundPerDeal,2) + ' is less' + 
+           ' than minimum fund of ' + fundCurrency + minimumFund + '\n'
+        }
+    }
+    else {
+        message = 'No active deals found for "' + bot['name'] + '"\n'
+    }
+    return message
+}
+
+//compound and update bot
+async function compoundBot(apiObject, bot, totalProfit, profitCurrency, applicablePercent, dealArray) {
+    
+    const baseOrderVolume = bot['base_order_volume']
+    const safetyOrderVolume = bot['safety_order_volume']     
+    const safetyVolumeScale = bot['martingale_volume_coefficient']
+    const maxActiveDeals = bot['max_active_deals']
+    const pairs = bot['pairs']
+    const name = bot['name']
+    const safetyOrderStepPercentage = bot['safety_order_step_percentage']
+    const safetyOrderMaxSize = bot['max_safety_orders']
+    const factor = safetyOrderVolume / baseOrderVolume
+
+    //get divisor to split the profit into base order and safety order, it depends on safety volume scale and ratio of safety volume to base volume
+    var divisor = 1
+    if (safetyVolumeScale == 1) {
+        divisor = safetyOrderMaxSize * factor + 1
+    }
+    else {
+        divisor = ((1 - Math.pow(safetyVolumeScale, safetyOrderMaxSize)) / (1 - safetyVolumeScale)) * factor + 1
+    }
+
+    //divide profit to base and safety splits 
+    const profitToCompound = totalProfit * applicablePercent       
+    const baseProfitSplit = (parseFloat(profitToCompound / divisor))/maxActiveDeals
+    const safetyProfitSplit = baseProfitSplit * factor
+
+    // compound the profits from the deal to the bot's base volume and safety volume        
+    const newBaseOrderVolume = parseFloat(baseOrderVolume) + baseProfitSplit       
+    const newSafetyOrderVolume = parseFloat(safetyOrderVolume) + safetyProfitSplit
+
+    // update bot with compounded values            
+    let pairList=""
+    for (const i of pairs){
+        pairList +=i + ","
+    }            
+    //the following keys are there because they are mandatory... a 3commas thing
+    const updateParam = {
+        name : bot['name'],
+        pairs : pairList,
+        max_active_deals: bot['max_active_deals'],
+        base_order_volume: newBaseOrderVolume, // this is what we're interested in
+        take_profit: bot['take_profit'],
+        safety_order_volume: newSafetyOrderVolume, // and this               
+        martingale_volume_coefficient: bot['martingale_volume_coefficient'],
+        martingale_step_coefficient: bot['martingale_step_coefficient'],
+        max_safety_orders: safetyOrderMaxSize,
+        active_safety_orders_count: bot['active_safety_orders_count'],
+        safety_order_step_percentage: safetyOrderStepPercentage,
+        take_profit_type: bot['take_profit_type'],
+        strategy_list: bot['strategy_list'],
+        bot_id: bot['id']
+    }    
+    const updateResult = await apiObject.botUpdate(updateParam) 
+    let output
+    if (updateResult.error){
+        const error = updateResult.error
+        output = {updateResult, error}
+    }
+    else {
+        const time = getCurrentTime()
+        const plural = dealArray.length == 1 ? "" : "s"  
+        const botMessage = 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
+        applicablePercent*100 + '%' + ' of ' + profitCurrency + roundDown(totalProfit, 2) + 
+        ' total profit from ' + dealArray.length + ' deal' + plural + ": \n" + dealArray + '\n\n' +
+        'Base order size increased from ' + profitCurrency + baseOrderVolume + ' to ' + profitCurrency + newBaseOrderVolume +'\n' +
+        'Safety order size increased from ' + profitCurrency + safetyOrderVolume + ' to ' + profitCurrency + newSafetyOrderVolume + '\n\n'
+        
+        output = {updateResult, botMessage}
+    } 
+    return output
+}
+
+//high level function to perform compounding
+async function startCompounding (appModes, percentProfits, botIds, updateActiveDeals) {   
+    
+    //get percent profit and check if it's array matches bot id array
+    let percentProfit
+    if (percentProfits.length == 1){
+        percentProfit = percentProfits[0]
+    }
+    else if (botIds.length != percentProfits.length){
+        console.log("Array of bots and profit percents do not match in length, function will exit")
+        return
+    }
+    
+    //loop through each appModes for all bots
+    for (const y of appModes){
+
+        //get instance of api object to be using
+        let api = new threeCommasAPI({
+            apiKey: process.env.API_KEY,
+            apiSecret: process.env.API_SECRET,
+            appMode: y,            
+          })
+        
+        let count = 0
+        //loop the the bots
+        for (const x of botIds) {    
+
+            //get the bot info
+            const bot = await api.botShow(x)
+    
+            const baseCurrency = bot['base_order_volume_type']
+            const profitCurrency = bot['profit_currency']
+            const currency = profitCurrency=='quote_currency' ? '$' :''
+
+            //bot will be updated if it meets these conditions
+            if (bot['base_order_volume_type'] !== 'percent' && baseCurrency == profitCurrency) {
+                //get the completed deals for current bot
+                const deals = await api.getDeals({scope: 'finished', bot_id: x}) 
+        
+                //loop through the deals synchronously to carry out next steps
+                var profitSum = 0
+                var dealArray = []
+                var compoundedDealsCount = 0
+                for (const i of deals) {
+        
+                    // check if deal has already been compounded
+                    const dealId = i.id
+                    let deal
+                    if (api.appMode == "paper") {
+                        deal = await model.paperCollection.find({ dealId })
+                    }
+                    else if(api.appMode == "real")  {
+                        deal = await model.realCollection.find({ dealId })
+                    }
+                    else {
+                        deal = await model.bothCollection.find({ dealId })
+                    }
+                    
+                    // if deal hasn't been registered yet, we're good to start our compounding magic
+                    //get total profit from all completed deals
+                    if (deal.length === 0) {
+        
+                        const profit = profitCurrency == 'quote_currency' ? parseFloat(i['final_profit']) : parseFloat(i['reserved_second_coin'])*(-1) 
+                    
+                        compoundedDealsCount += 1
+                        profitSum += profit
+                        dealArray.push(' deal ' + dealId + ': ' + currency + roundDown(profit, 2) )
+                    }
+                }
+        
+                //compound the total profit
+                if (profitSum != 0) {  
+                    //get actual profit to compound per percent specification
+                    if (percentProfits.length != 1){
+                        percentProfit = percentProfits[count]
+                    }     
+
+                    //update the bot
+                    let {updateResult, botMessage} = await compoundBot(api, bot, profitSum, currency, percentProfit, dealArray) 
+
+                    if (updateResult.error) {   
+                        console.log(message)                      
+                    } 
+                    else {
+                        //if bot was updated successfully, addfund to it's active deals if requested, and provided it is a long bot
+                        let dealsMessage
+                        if (updateActiveDeals & currency=='$'){ 
+                            const compoundedProfit = profitSum * percentProfit     
+                            dealsMessage = await addFund(api, bot, compoundedProfit, currency)
+                        } 
+                        
+                        //prepare output
+                        const startEndLine =  "=====================\n"                         
+                        const logMessage = startEndLine + botMessage + dealsMessage + startEndLine
+                        console.log(logMessage)                   
+
+                        // save deals to database so that they won't be compounded again
+                        deals.map(async (deal) => {
+                            const dealId = deal.id
+                            let dealData
+                            if (api.appMode == "paper") {
+                                dealData = await model.paperCollection.find({ dealId })
+                                if (dealData.length === 0) {
+                                    const compoundedDeal = new model.paperCollection({ dealId })
+        
+                                    await compoundedDeal.save()
+                                }
+                            }
+                            else if (api.appMode == "real")  {
+                                dealData = await model.realCollection.find({ dealId })
+                                if (dealData.length === 0) {
+                                    const compoundedDeal = new model.realCollection({ dealId })
+        
+                                    await compoundedDeal.save()
+                                }
+                            }
+                            else {
+                                dealData = await model.realCollection.find({ dealId })
+                                if (dealData.length === 0) {
+                                    const compoundedDeal = new model.bothCollection({ dealId })
+
+                                    await compoundedDeal.save()
+                                }
+                            }                            
+                        })
+                    }                    
+                } 
+                //increment count for the next bot
+                count+=1  
+                // wait for 1 secs after finishing one bot to prevent 3commas rate limit issue     
+                await sleep(1000)
+            }
+        }
+    }    
+}
+
+const compound = async () => { 
+    startCompounding(appModes, percentProfits, botIds, updateActiveDeals)
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => {
+      setTimeout(resolve, ms);
+    });
+}
 
 function roundDown(number, decimals) {
     decimals = decimals || 0;
@@ -32,195 +307,5 @@ function getCurrentTime() {
 const lastTime = { time: new Date() }
 var startTime = getCurrentTime()
 
-//compound and update bot
-function compoundBot(bot, profitToCompound) {
-    
-    let update
-    if (profitToCompound != 0) {            
-        //const bot_id = x
-        //const bot = await api.botShow(bot_id)
-        const baseOrderVolume = bot['base_order_volume']
-        const safetyOrderVolume = bot['safety_order_volume']     
-        const safetyVolumeScale = bot['martingale_volume_coefficient']
-        const maxActiveDeals = bot['max_active_deals']
-        const pairs = bot['pairs']
-        const name = bot['name']
-        const safetyOrderStepPercentage = bot['safety_order_step_percentage']
-        const safetyOrderMaxSize = bot['max_safety_orders']
-        const factor = safetyOrderVolume / baseOrderVolume
-
-        //get divisor to split the profit into base order and safety order, it depends on safety volume scale and ratio of safety volume to base volume
-        var divisor = 1
-        if (safetyVolumeScale == 1) {
-            divisor = safetyOrderMaxSize * factor + 1
-        }
-        else {
-            divisor = ((1 - Math.pow(safetyVolumeScale, safetyOrderMaxSize)) / (1 - safetyVolumeScale)) * factor + 1
-        }
-
-        //divide profit to base and safety splits        
-        const baseProfitSplit = (parseFloat(profitToCompound / divisor))/maxActiveDeals
-        const safetyProfitSplit = baseProfitSplit * factor
-
-        // compound the profits from the deal to the bot's base volume and safety volume        
-        const newBaseOrderVolume = parseFloat(baseOrderVolume) + baseProfitSplit       
-        const newSafetyOrderVolume = parseFloat(safetyOrderVolume) + safetyProfitSplit
-
-        // update bot with compounded values            
-        let pairList=""
-        for (const i of pairs){
-            pairList +=i + ","
-        }            
-        // (the following keys are there because they are mandatory... a 3commas thing)
-        const updateParam = {
-            name : bot['name'],
-            pairs : pairList,
-            max_active_deals: bot['max_active_deals'],
-            base_order_volume: newBaseOrderVolume, // this is what we're interested in
-            take_profit: bot['take_profit'],
-            safety_order_volume: newSafetyOrderVolume, // and this               
-            martingale_volume_coefficient: bot['martingale_volume_coefficient'],
-            martingale_step_coefficient: bot['martingale_step_coefficient'],
-            max_safety_orders: safetyOrderMaxSize,
-            active_safety_orders_count: bot['active_safety_orders_count'],
-            safety_order_step_percentage: safetyOrderStepPercentage,
-            take_profit_type: bot['take_profit_type'],
-            strategy_list: bot['strategy_list'],
-            bot_id: bot['id']
-        }
-        
-        update = await api.botUpdate(updateParam) 
-    }
-
-    return update
-}
-
-//start the compounding process
-const moderateCompound = async (botIds) => {    
-    
-    for (const x of botIds) {    
-
-        //get the bot info
-        const bot = await api.botShow(x)
-
-        const baseCurrency = bot['base_order_volume_type']
-        const profitCurrency = bot['profit_currency']
-        const currency = profitCurrency=='quote_currency' ? '$' :''
-
-        //get the completed deals for current bot
-        const deals = await api.getDeals({scope: 'finished', bot_id: x}) 
-
-        //loop through the deals synchronously to carry out next steps
-        var profitSum = 0
-        var dealArray = []
-        var compoundedDealsCount = 0
-        for (const i of deals) {
-
-            // check if deal has already been compounded
-            const dealId = i.id
-            let deal
-            if (api.appMode == "paper") {
-                deal = await model.paperCollection.find({ dealId })
-            }
-            else if(api.appMode == "real")  {
-                deal = await model.realCollection.find({ dealId })
-            }
-            else {
-                deal = await model.bothCollection.find({ dealId })
-            }
-            //const deal = await model.find({ dealId })
-            //const closedTime = i['closed_at']
-
-            // if deal hasn't been registered yet, we're good to start our compounding magic
-            //get total profit from all completed deals
-            if (deal.length === 0) {
-
-                const profit = profitCurrency == 'quote_currency' ? parseFloat(i['final_profit']) : parseFloat(i['reserved_second_coin'])*(-1) 
-               
-                compoundedDealsCount += 1
-                profitSum += profit
-                dealArray.push(' deal ' + dealId + ': ' + currency + roundDown(profit, 2) )
-            }
-        }
-
-
-        if (profitSum != 0) {      
-            
-            if (bot['base_order_volume_type'] !== 'percent' && baseCurrency == profitCurrency) {
-
-                const compoundedProfit = profitSum * percentProfit
-                const update = compoundBot(bot, compoundedProfit)                
-                const plural = dealArray.length == 1 ? "" : "s"
-
-                const log = (error) => {
-                    // log
-                    const time = getCurrentTime()                    
-
-                    const logMessage = "=====================\n" + 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
-                    percentProfit*100 + '%' + ' of ' + currency + roundDown(profitSum, 2) + 
-                    ' total profit from ' + compoundedDealsCount + ' deal' + plural + ": \n" + dealArray + '\n\n' +
-                    'Base order size increased from ' + currency + baseOrderVolume + ' to ' + currency + newBaseOrderVolume +'\n' +
-                    'Safety order size increased from ' + currency + safetyOrderVolume + ' to ' + currency + newSafetyOrderVolume + '\n' +
-                    "=====================\n"
-
-                    const errorMessage = update.error
-                    const message = error ? errorMessage : logMessage
-                   
-                    console.log(message)
-                }
-
-                if (update.error) {
-                    log(true)
-                } else {
-                    log()
-                    // save deals to database so that they won't be compounded again
-                    deals.map(async (deal) => {
-                        const dealId = deal.id
-                        let dealData
-                        if (api.appMode == "paper") {
-                            dealData = await model.paperCollection.find({ dealId })
-
-                            if (dealData.length === 0) {
-                                const compoundedDeal = new model.paperCollection({ dealId })
-    
-                                await compoundedDeal.save()
-                            }
-
-                        }
-                        else if (api.appMode == "real")  {
-                            dealData = await model.realCollection.find({ dealId })
-
-                            if (dealData.length === 0) {
-                                const compoundedDeal = new model.realCollection({ dealId })
-    
-                                await compoundedDeal.save()
-                            }
-                        }
-                        else {
-                            dealData = await model.realCollection.find({ dealId })
-                            if (dealData.length === 0) {
-                                const compoundedDeal = new model.bothCollection({ dealId })
-
-                                await compoundedDeal.save()
-                            }
-                        }
-                        
-                    })
-
-                }
-            }
-        }   
-        // wait for 1 secs after finishing one bot to prevent 3commas rate limit issue     
-        await sleep(1000) 
-
-    }
-}
-
-function sleep(ms) {
-    return new Promise((resolve) => {
-      setTimeout(resolve, ms);
-    });
-  }
-
-cron.schedule('30 * * * * *', () => moderateCompound(), {})
+cron.schedule('30 * * * * *', () => compound(), {})
 

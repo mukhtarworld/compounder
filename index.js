@@ -4,12 +4,12 @@ const cron = require('node-cron')
 const model = require('./model')
 const threeCommasAPI = require('3commas-api-node')
  
-let api = new threeCommasAPI({
+/*let api = new threeCommasAPI({
   apiKey: process.env.API_KEY,
   apiSecret: process.env.API_SECRET,
   //appMode: process.env.APP_MODE
   // url: 'https://api.3commas.io' // this is optional in case of defining other endpoint
-})
+})*/
 
 //user input
 const botIds = process.env.BOT_IDS.split(',')//[6115959, 6117435, 6107349, 6242171, 6254325, 6286865, 6545493] //array of bots eligible for compunding [6362860]
@@ -45,7 +45,13 @@ const compound = async () => {
         return
     }
     for (const y of appModes){
-        api.appMode = y
+
+        let api = new threeCommasAPI({
+            apiKey: process.env.API_KEY,
+            apiSecret: process.env.API_SECRET,
+            appMode: y,            
+          })
+        
         let count = 0
 
         for (const x of botIds) {    
@@ -227,5 +233,5 @@ function sleep(ms) {
     });
   }
 
-cron.schedule('30 * * * * *', () => compound(), {})
+cron.schedule('30 */2 * * * *', () => compound(), {})
 
