@@ -9,7 +9,7 @@
   "name": "compounder",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "botManager.js",
   "scripts": {
     "start": "nodemon index.js"
   },

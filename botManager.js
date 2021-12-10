@@ -7,66 +7,76 @@ const { parse } = require('dotenv')
 
 
 //user inputs
-const botIds = [7212186] //process.env.BOT_IDS.split(',') //[7212186]
-const percentProfits =[1] // process.env.PERCENT_PROFITS.split(',') //[1]
-const appModes = ["paper"]
-const updateActiveDeals = true // process.env.ACTIVE_DEALS_UPDATE
+const botIds = process.env.BOT_IDS.split(',') //[7212186]
+const percentProfits =process.env.PERCENT_PROFITS.split(',') //[1]
+const appModes = ["paper","real"]
+const updateActiveDeals = process.env.UPDATE_ACTIVE_DEALS
+const minimumFundForActiveDeals = process.env.MINIMUM_FUND_FOR_ACTIVE_DEALS
+const interval = process.env.RUN_INTERVAL_IN_MINUTES
+
 
 //adds fund to active deals
-async function addFund(apiObject, bot, fundToAdd, fundCurrency){
-    let message
+async function addFund(apiObject, bot, fundToAdd, minimumFund, fundCurrency){
+    let message=''
     //get active deals for the bot
     const activeDeals = await apiObject.getDeals({scope: 'active', bot_id: bot['id']})
+    
     if (activeDeals.length != 0) {
-
-        //divide fund to the number of active deals
-        const fundPerDeal = parseFloat(fundToAdd)/activeDeals.length
-        let successAdded=[], fundAdded=0, log = '', prefix = '', suffix = '', minimumFund = 1.0
-        //add fund to active deals if fundPerdeal is greater than minimumFund
-        if (fundPerDeal >= minimumFund){
-            for (const i of activeDeals) {
-                const currentPrice =parseFloat(i['current_price']) 
-                const quantity = fundPerDeal/currentPrice
-                const updateParam = {
-                    quantity : quantity,
-                    is_market : true,
-                    rate: 0,
-                    deal_id: i.id                
+        //for now, only add for long bots
+        if (activeDeals[0]['type'] != "Deal::ShortDeal"){
+            //divide fund to the number of active deals
+            const fundPerDeal = parseFloat(fundToAdd)/activeDeals.length
+            let successAdded=[], fundAdded=0, log = '', prefix = '', suffix = ''
+            //add fund to active deals if fundPerdeal is greater than minimumFund
+            if (fundPerDeal >= minimumFund){
+                for (const i of activeDeals) {
+                    const currentPrice =parseFloat(i['current_price']) 
+                    const quantity = fundPerDeal/currentPrice
+                    const updateParam = {
+                        quantity : quantity,
+                        is_market : true,
+                        rate: 0,
+                        deal_id: i.id                
+                    }
+                    //add fund to the deal
+                    const update = await apiObject.dealAddFunds(updateParam)
+                    if (!update.error){
+                        successAdded.push (i.id)
+                        fundAdded += fundPerDeal
+                    }
+                    else {
+                        log +='deal: ' + i.id + ' - ' + update.error + '\n'
+                    }
                 }
-                //add fund to the deal
-                const update = await apiObject.dealAddFunds(updateParam)
-                if (!update.error){
-                    successAdded.push (i.id)
-                    fundAdded += fundPerDeal
+
+                //prepare output message
+                if (successAdded.length == 0){
+                    prefix = "\nUnable to add fund to any of the active deals. Following error was encountered:\n"
+                    suffix = ''
+                }
+                else if (successAdded.length != activeDeals.length){
+                    prefix = "\nUnable to add fund to one or more active deals. Following error was encountered:\n"
+                    suffix = fundCurrency + roundDown(fundPerDeal,2) + ' was successfully added to each of these active deals:\n' + successAdded +'\n'
                 }
                 else {
-                    log +='deal: ' + i.id + ' - ' + update.error + '\n'
+                    prefix ='\n' + fundCurrency + roundDown(fundPerDeal,2) + ' was successfully added to each of these active deals:\n' + successAdded
+                    log = ''
+                    suffix = '\n'
                 }
-            }
-
-            //prepare output message
-            if (successAdded.length == 0){
-                prefix = "Unable to add fund to any of the active deals. Following error was encountered:\n"
-                suffix = ''
-            }
-            else if (successAdded.length != activeDeals.length){
-                prefix = "Unable to add fund to one or more active deals. Following error was encountered:\n"
-                suffix = fundCurrency + roundDown(fundPerDeal,2) + ' was successfully added to each of these active deals:\n' + successAdded +'\n'
+                message = prefix + log + suffix
             }
             else {
-                prefix = fundCurrency + roundDown(fundPerDeal,2) + ' was successfully added to each of these active deals:\n' + successAdded
-                log = ''
-                suffix = '\n'
+                message = '\nUnable to add fund to any active deals. ' + fundCurrency + roundDown(fundPerDeal,2) + ' is less' + 
+            ' than minimum fund of ' + fundCurrency + minimumFund + '\n'
             }
-            message = prefix + log + suffix
         }
         else {
-            message = 'Unable to add fund to any active deals. ' + fundCurrency + roundDown(fundPerDeal,2) + ' is less' + 
-           ' than minimum fund of ' + fundCurrency + minimumFund + '\n'
+            message = "No fund added, it's a short deal"
+            return message
         }
     }
     else {
-        message = 'No active deals found for "' + bot['name'] + '"\n'
+        message = '\nNo active deals found for "' + bot['name'] + '"\n'
     }
     return message
 }
@@ -125,19 +135,19 @@ async function compoundBot(apiObject, bot, totalProfit, profitCurrency, applicab
         bot_id: bot['id']
     }    
     const updateResult = await apiObject.botUpdate(updateParam) 
-    let output
+    let output, botMessage
     if (updateResult.error){
-        const error = updateResult.error
-        output = {updateResult, error}
+        botMessage = 'Error encountered updating "' + name + '": ' + updateResult.error
+        output = {updateResult, botMessage}
     }
     else {
         const time = getCurrentTime()
         const plural = dealArray.length == 1 ? "" : "s"  
-        const botMessage = 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
+        botMessage = 'At ' + time + ', service ' + 'compounded "' + name + '"' + ' with ' + 
         applicablePercent*100 + '%' + ' of ' + profitCurrency + roundDown(totalProfit, 2) + 
         ' total profit from ' + dealArray.length + ' deal' + plural + ": \n" + dealArray + '\n\n' +
         'Base order size increased from ' + profitCurrency + baseOrderVolume + ' to ' + profitCurrency + newBaseOrderVolume +'\n' +
-        'Safety order size increased from ' + profitCurrency + safetyOrderVolume + ' to ' + profitCurrency + newSafetyOrderVolume + '\n\n'
+        'Safety order size increased from ' + profitCurrency + safetyOrderVolume + ' to ' + profitCurrency + newSafetyOrderVolume + '\n'
         
         output = {updateResult, botMessage}
     } 
@@ -145,7 +155,8 @@ async function compoundBot(apiObject, bot, totalProfit, profitCurrency, applicab
 }
 
 //high level function to perform compounding
-async function startCompounding (appModes, percentProfits, botIds, updateActiveDeals) {   
+async function startCompounding (appModes, percentProfits, botIds, updateActiveDeals, minimumFundForActiveDeals) {   
+    console.log('starting')
     
     //get percent profit and check if it's array matches bot id array
     let percentProfit
@@ -170,10 +181,10 @@ async function startCompounding (appModes, percentProfits, botIds, updateActiveD
         let count = 0
         //loop the the bots
         for (const x of botIds) {    
-
+            
             //get the bot info
             const bot = await api.botShow(x)
-    
+            //console.log("Tracking " + bot['name'] + ' with id: ' + x + ' for percent profit ' + percentProfits[count])
             const baseCurrency = bot['base_order_volume_type']
             const profitCurrency = bot['profit_currency']
             const currency = profitCurrency=='quote_currency' ? '$' :''
@@ -182,36 +193,40 @@ async function startCompounding (appModes, percentProfits, botIds, updateActiveD
             if (bot['base_order_volume_type'] !== 'percent' && baseCurrency == profitCurrency) {
                 //get the completed deals for current bot
                 const deals = await api.getDeals({scope: 'finished', bot_id: x}) 
-        
+                
                 //loop through the deals synchronously to carry out next steps
                 var profitSum = 0
                 var dealArray = []
                 var compoundedDealsCount = 0
                 for (const i of deals) {
+
+                    if (i['localized_status'] == 'Completed' || i['localized_status'] == 'Closed at Market Price') {
+                        // check if deal has already been compounded
+                        const dealId = i.id
+                        let deal
+                        if (api.appMode == "paper") {
+                            deal = await model.paperCollection.find({ dealId })
+                        }
+                        else if(api.appMode == "real")  {
+                            deal = await model.realCollection.find({ dealId })
+                        }
+                        else {
+                            deal = await model.bothCollection.find({ dealId })
+                        }
+                        
+                        // if deal hasn't been registered yet, we're good to start our compounding magic
+                        //get total profit from all completed deals
+                        if (deal.length === 0) {
+            
+                            const profit = profitCurrency == 'quote_currency' ? parseFloat(i['final_profit']) : parseFloat(i['reserved_second_coin'])*(-1) 
+                        
+                            compoundedDealsCount += 1
+                            profitSum += profit
+                            dealArray.push(' deal ' + dealId + ': ' + currency + roundDown(profit, 2) )
+                        }
+                    }
         
-                    // check if deal has already been compounded
-                    const dealId = i.id
-                    let deal
-                    if (api.appMode == "paper") {
-                        deal = await model.paperCollection.find({ dealId })
-                    }
-                    else if(api.appMode == "real")  {
-                        deal = await model.realCollection.find({ dealId })
-                    }
-                    else {
-                        deal = await model.bothCollection.find({ dealId })
-                    }
                     
-                    // if deal hasn't been registered yet, we're good to start our compounding magic
-                    //get total profit from all completed deals
-                    if (deal.length === 0) {
-        
-                        const profit = profitCurrency == 'quote_currency' ? parseFloat(i['final_profit']) : parseFloat(i['reserved_second_coin'])*(-1) 
-                    
-                        compoundedDealsCount += 1
-                        profitSum += profit
-                        dealArray.push(' deal ' + dealId + ': ' + currency + roundDown(profit, 2) )
-                    }
                 }
         
                 //compound the total profit
@@ -225,14 +240,14 @@ async function startCompounding (appModes, percentProfits, botIds, updateActiveD
                     let {updateResult, botMessage} = await compoundBot(api, bot, profitSum, currency, percentProfit, dealArray) 
 
                     if (updateResult.error) {   
-                        console.log(message)                      
+                        console.log(botMessage)                      
                     } 
                     else {
                         //if bot was updated successfully, addfund to it's active deals if requested, and provided it is a long bot
-                        let dealsMessage
-                        if (updateActiveDeals & currency=='$'){ 
+                        let dealsMessage=''
+                        if (updateActiveDeals=='true'){ 
                             const compoundedProfit = profitSum * percentProfit     
-                            dealsMessage = await addFund(api, bot, compoundedProfit, currency)
+                            dealsMessage = await addFund(api, bot, compoundedProfit, minimumFundForActiveDeals, currency)
                         } 
                         
                         //prepare output
@@ -280,8 +295,12 @@ async function startCompounding (appModes, percentProfits, botIds, updateActiveD
     }    
 }
 
-const compound = async () => { 
-    startCompounding(appModes, percentProfits, botIds, updateActiveDeals)
+/*const compound = async () => { 
+    startCompounding(appModes, percentProfits, botIds, updateActiveDeals, minimumFundForActiveDeals)
+}*/
+
+function compound(){
+    startCompounding(appModes, percentProfits, botIds, updateActiveDeals, minimumFundForActiveDeals)
 }
 
 function sleep(ms) {
@@ -307,5 +326,65 @@ function getCurrentTime() {
 const lastTime = { time: new Date() }
 var startTime = getCurrentTime()
 
-cron.schedule('30 * * * * *', () => compound(), {})
+//cron.schedule('30 * * * * *', () => compound(), {})
+
+async function main() {
+    let {error, result} = await getCRONstring(interval)
+    if (error == 'true') {
+        console.log(result);
+        process.exit()        
+    }
+    else{
+        cron.schedule(result, () => compound(), {})
+    }
+}
+  
+if (require.main === module) {
+    main();
+}
+
+async function getCRONstring (compoundingInterval) {
+    let minute = parseInt(compoundingInterval)
+    let output, error ='',result=''
+    if (minute > 10080){
+        result = 'Compounding interval cannot be greater than 10,080 minutes or 7 days. Exiting the process...'
+        error = 'true'
+    }
+    else {
+        const day = Math.floor(minute/(60*24))
+        let remMinute = minute % (60*24)
+        let hour = Math.floor(remMinute/60)
+        let localMinute = remMinute % 60
+
+        let dayString='', hourString='', minuteString=''
+        if (day == 0) {
+            dayString = '*'
+            if (hour == 0) {
+                hourString = '*'
+                if (localMinute == 0) {
+                    minuteString = '*'
+                }
+                else {
+                    minuteString = '*/' + localMinute
+                }   
+            }
+            else {
+                hourString = '*/' + hour
+                minuteString = localMinute
+            }
+        }
+        else {
+            dayString = '*/' + day
+            hourString = hour
+            minuteString = localMinute
+        }
+        
+        result = '0 ' + minuteString + ' ' + hourString + ' ' + dayString + ' * *'
+        error = 'false'
+    }
+    output = {error, result}
+    return output
+}
+
+
 
